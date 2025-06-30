@@ -1,5 +1,4 @@
-
-// version 0000.0003aa
+// version 0000.0004aaaaa
 
 #include <iostream>
 #include <fstream>   // For std::ofstream
@@ -8,6 +7,8 @@
 #include <cstdlib>   // For atoi, qsort, srand48, drand48, lrand48, time
 #include <cstdio>    // For sprintf (needed if using sprintf, though std::to_string or string streams are preferred in C++)
 #include <iomanip>   // For std::fixed and std::setprecision
+#include <string>    // For std::string
+
 
 // The original code included <rand48.h> which is non-standard.
 // These functions are usually declared in <cstdlib> or <stdlib.h>
@@ -423,8 +424,8 @@ int main(int ac, char *av[])
     long seed = time(0);
     int MaxPlanets = 20;    // Size of dynamic array containing generated planets
 
-    float aumin = 0.3;  
-    float aumax = 50;   
+    double aumin = 0.3;  // Changed to double for precision
+    double aumax = 50;   // Changed to double for precision
 
     // Default DoleParams values (as in the DoleParams constructor)
     double pA = .00150;
@@ -537,6 +538,18 @@ int main(int ac, char *av[])
     // Create DoleParams object with potentially overridden values
     DoleParams *params = new DoleParams(pA, pAlpha, pBeta, pEccentricity, pGamma, pK, pMassSol, pMassSun, pMassNuclei, pB, pW, pKMigration, pMigrationFinalFraction);
 
+    // --- Dynamic aumin adjustment based on QMigration ---
+    double original_aumin = aumin; // Store original aumin for comparison
+    double effective_aumin_due_to_migration = original_aumin * params->MigrationFinalFraction;
+    // If migration moves planets significantly inwards, adjust aumin lower for checks
+    if (effective_aumin_due_to_migration < original_aumin) {
+        aumin = effective_aumin_due_to_migration;
+        // Ensure aumin doesn't become unrealistically small (e.g., minimum 0.01 AU)
+        if (aumin < 0.01) aumin = 0.01;
+        std::cout << "Huom: aumin säädetty migraation vuoksi arvoon: " << std::fixed << std::setprecision(4) << aumin << " AU\n";
+    }
+    // --- End Dynamic aumin adjustment ---
+
     double   nucleieccent, nucleiradius, masslast, eccent, mass, rperigee,
              rapogee, radius, mu, xperigee, xapogee, masscritical,
              density, bw, volume, da, dp, masspass;
@@ -617,7 +630,7 @@ int main(int ac, char *av[])
     body.eccen = nucleieccent;
     body.mass = params->MassNuclei;
     // Set initial type, will be determined accurately later
-    body.type = Nucleus::Rock; // Corrected: Nucleus::Rock
+    body.type = Nucleus::Rock; 
 
     // This is only used on first pass of nuclei
     masslast = 0;
@@ -847,7 +860,6 @@ int main(int ac, char *av[])
 
         if (mass >= masscritical) {
         // Clear out bands emptied by gas giant formation
-        // body.type = Nucleus::GasGiant; // This was here, moved above
         if (band[bandno] == Gas || band[bandno] == Mixed)
             band[bandno] = Empty;
         }
@@ -884,7 +896,7 @@ int main(int ac, char *av[])
         // When merging, the new planet's type should ideally reflect its final state.
         // For simplicity, if either was a gas giant, the result is a gas giant.
         // Otherwise, re-evaluate based on new mass and position.
-        Nucleus::PlanetType merged_type; // Corrected: Using Nucleus::PlanetType
+        Nucleus::PlanetType merged_type; 
         if (body.type == Nucleus::GasGiant || nuclei[i].type == Nucleus::GasGiant) {
             merged_type = Nucleus::GasGiant;
         } else {
@@ -925,19 +937,6 @@ int main(int ac, char *av[])
 
     ps_line(std::log10(lowband2 * 0.2), yBand, std::log10(highband2 * 0.2), yBand);
     yBand -= 0.01;
-
-    // This block moved up to after mass accumulation loop
-    /*
-    if (body.mass >= masscritical)
-        body.type = Nucleus::GasGiant;
-    else { // Not a gas giant, check for rocky/icy
-        if (body.axis >= SNOW_LINE_AU) {
-            body.type = Nucleus::Icy;
-        } else {
-            body.type = Nucleus::Rock;
-        }
-    }
-    */
 
     // Add new planet
     if (nplanet >= MaxPlanets) { 
@@ -987,11 +986,11 @@ int main(int ac, char *av[])
                 nuclei[i].aAttr = nuclei[i].aRad * munew;
 
                 // Re-evaluate type after QMigration if it's not a gas giant
-                if (nuclei[i].type != Nucleus::GasGiant) { // Corrected: Nucleus::GasGiant
+                if (nuclei[i].type != Nucleus::GasGiant) { 
                      if (nuclei[i].axis >= SNOW_LINE_AU) {
-                         nuclei[i].type = Nucleus::Icy; // Corrected: Nucleus::Icy
+                         nuclei[i].type = Nucleus::Icy; 
                      } else {
-                         nuclei[i].type = Nucleus::Rock; // Corrected: Nucleus::Rock
+                         nuclei[i].type = Nucleus::Rock; 
                      }
                 }
                 // For debugging:
@@ -1002,6 +1001,78 @@ int main(int ac, char *av[])
 
     // Sort nuclei by radius (again, as QMigration might change order)
     std::qsort(static_cast<void *>(nuclei), nplanet, sizeof(Nucleus), nucleusCompare); 
+
+    // --- Hill-kriteerin mukainen suodatus ---
+    std::cout << "Suoritetaan Hill-kriteerin mukainen suodatus...\n";
+    bool unstable_orbits_found = true;
+    while (unstable_orbits_found) {
+        unstable_orbits_found = false;
+        // Re-sort after any potential previous removal to ensure adjacent planets are checked correctly
+        std::qsort(static_cast<void *>(nuclei), nplanet, sizeof(Nucleus), nucleusCompare);
+
+        for (int i = 0; i < nplanet; ++i) {
+            if (nuclei[i].axis == 0 || nuclei[i].mass == 0) continue; // Skip removed planets
+
+            for (int j = i + 1; j < nplanet; ++j) {
+                if (nuclei[j].axis == 0 || nuclei[j].mass == 0) continue; // Skip removed planets
+
+                // Calculate Hill radii for both planets
+                // Mass needs to be in terms of Solar Masses for consistency with Dole's units
+                // (or ensure M_sun is in same units as planet mass)
+                double M_sun_for_hill = params->MassSun; // Typically 1.0 Solar Mass (Dole's units)
+
+                // Convert planet masses to Solar Mass for calculation
+                double m_i_sol = nuclei[i].mass; 
+                double m_j_sol = nuclei[j].mass;
+
+                // Hill radius calculation: a * cbrt(m / (3 * M_sun))
+                double rh_i = nuclei[i].axis * std::cbrt(m_i_sol / (3.0 * M_sun_for_hill));
+                double rh_j = nuclei[j].axis * std::cbrt(m_j_sol / (3.0 * M_sun_for_hill));
+
+                // Distance between planets
+                double distance_between_planets = std::fabs(nuclei[i].axis - nuclei[j].axis);
+
+                // Check for overlap. A typical stability criterion is 2*R_H.
+                // For removal, we can use a stricter criterion, e.g., if distance < sum of Hill radii.
+                // Or for robust stability, distance > some multiple of (RH_i + RH_j)
+                // Using (rh_i + rh_j) as the threshold for removal.
+                if (distance_between_planets < (rh_i + rh_j)) {
+                    std::cout << "Instability found between Planet " << i+1 << " (" << std::fixed << std::setprecision(2) << nuclei[i].axis << " AU) and Planet " << j+1 << " (" << nuclei[j].axis << " AU).\n";
+                    std::cout << "  Hill radii: " << rh_i << " AU (P" << i+1 << "), " << rh_j << " AU (P" << j+1 << "). Sum: " << (rh_i + rh_j) << " AU.\n";
+                    std::cout << "  Distance: " << distance_between_planets << " AU.\n";
+
+                    // Remove the less massive planet
+                    if (nuclei[i].mass <= nuclei[j].mass) {
+                        std::cout << "  Removing Planet " << i+1 << " (mass: " << nuclei[i].mass * SOLAR_MASS_TO_EARTH_MASS << " Earth Masses).\n";
+                        nuclei[i].axis = 0; // Mark for removal
+                        nuclei[i].mass = 0;
+                    } else {
+                        std::cout << "  Removing Planet " << j+1 << " (mass: " << nuclei[j].mass * SOLAR_MASS_TO_EARTH_MASS << " Earth Masses).\n";
+                        nuclei[j].axis = 0; // Mark for removal
+                        nuclei[j].mass = 0;
+                    }
+                    unstable_orbits_found = true; // Flag that changes occurred, need another pass
+                    break; // Break inner loop, as the array structure changed
+                }
+            }
+            if (unstable_orbits_found) break; // If a planet was removed, break outer loop to re-clean and restart check
+        }
+
+        // After a pass, re-clean the nuclei array if any were removed
+        if (unstable_orbits_found) {
+            int current_nplanet = 0;
+            for (int k = 0; k < nplanet; ++k) {
+                if (nuclei[k].axis != 0 && nuclei[k].mass != 0) {
+                    nuclei[current_nplanet++] = nuclei[k];
+                }
+            }
+            nplanet = current_nplanet; // Update the count of valid planets
+            // Note: Array is re-sorted at the beginning of the while loop before checks.
+        }
+    }
+    std::cout << "Hill-kriteerin suodatus valmis. Planeettoja jäljellä: " << nplanet << "\n";
+    // --- Hill-kriteerin mukainen suodatus loppu ---
+
 
     // Draw planets, gas giants as filled circles
     double massSum = 0;
@@ -1016,7 +1087,7 @@ int main(int ac, char *av[])
     // Fill circle for gas giants, outline for rocky, different fill for icy?
     // For PS, all non-GasGiant (Rocky, Icy) will be outlined for simplicity,
     // as PostScript doesn't easily support multiple fill patterns/colors without more complex code.
-    bool fill_plot = (nuclei[i].type == Nucleus::GasGiant); // Corrected: Nucleus::GasGiant
+    bool fill_plot = (nuclei[i].type == Nucleus::GasGiant); 
     ps_circle(au, 0, r_plot, fill_plot);
     }
     ps_showpage();
@@ -1053,9 +1124,9 @@ int main(int ac, char *av[])
                 csv_file << nuclei[i].mass * SOLAR_MASS_TO_EARTH_MASS << ","; // mass_mearths
 
                 std::string planet_type_str;
-                if (nuclei[i].type == Nucleus::GasGiant) { // Corrected: Nucleus::GasGiant
+                if (nuclei[i].type == Nucleus::GasGiant) { 
                     planet_type_str = "GasGiant";
-                } else if (nuclei[i].type == Nucleus::Icy) { // Corrected: Nucleus::Icy
+                } else if (nuclei[i].type == Nucleus::Icy) { 
                     planet_type_str = "Icy";
                 } else {
                     planet_type_str = "Rocky";

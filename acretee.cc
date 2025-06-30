@@ -1,5 +1,5 @@
 
-// version 0000.0001
+// version 0000.0003aa
 
 #include <iostream>
 #include <fstream>   // For std::ofstream
@@ -24,6 +24,7 @@ const double EARTH_RADIUS_METERS = 6.371e6;       // Earth Radius in meters
 const double EARTH_MASS_KG = 5.972e24;            // Earth Mass in kilograms
 const double JUPITER_DENSITY_KG_M3 = 1330.0;      // Jupiter density kg/m^3
 const double EARTH_DENSITY_KG_M3 = 5510.0;        // Earth density kg/m^3
+const double ICE_DENSITY_KG_M3 = 917.0;         // Density of ice (water ice) in kg/m^3
 const double AU_TO_METERS = 1.496e11;             // 1 AU in meters
 const double SUN_SURFACE_TEMP_K = 5778.0;         // Sun's effective surface temperature in Kelvin
 const double SUN_RADIUS_METERS = 6.957e8;         // Sun's radius in meters
@@ -31,6 +32,10 @@ const double SUN_RADIUS_METERS = 6.957e8;         // Sun's radius in meters
 // Albedo estimates
 const double ALBEDO_ROCKY_PLANET = 0.3;
 const double ALBEDO_GAS_GIANT = 0.5;
+const double ALBEDO_ICY_PLANET = 0.7; // Higher albedo for icy worlds
+
+// New: Snow Line definition
+const double SNOW_LINE_AU = 2.5; // Lumiraja AU:na (2.5 * ekosfäärin etäisyys, joka Auringolla 1 AU)
 
 // Simulation parameters
 struct DoleParams {
@@ -46,10 +51,11 @@ struct DoleParams {
     MassSun,
     MassNuclei,
     W,
-    KMigration; // New parameter: migration coefficient
+    KMigration,           // Migration coefficient during accretion
+    MigrationFinalFraction; // New: Final fraction for post-accretion migration (QMigration)
 
    DoleParams();
-    DoleParams( double pA, double pAlpha,double pBeta,double pEccentricity,double pGamma,double pK,double pMassSol,double pMassSun,double pMassNuclei,double pB,double pW, double pKMigration);
+    DoleParams( double pA, double pAlpha,double pBeta,double pEccentricity,double pGamma,double pK,double pMassSol,double pMassSun,double pMassNuclei,double pB,double pW, double pKMigration, double pMigrationFinalFraction);
     
     double density(double au);
     double gasdensity(double au, double massratio);
@@ -72,9 +78,10 @@ DoleParams::DoleParams() {
     B = MassSun * 1.2e-5;
     W = .2;
     KMigration = 0.0; // Default value: no migration
+    MigrationFinalFraction = 1.0; // Default: no post-accretion migration (i.e., new_axis = old_axis * 1.0)
 }
 
-DoleParams::DoleParams( double pA, double pAlpha,double pBeta,double pEccentricity,double pGamma,double pK,double pMassSol,double pMassSun,double pMassNuclei,double pB,double pW, double pKMigration)
+DoleParams::DoleParams( double pA, double pAlpha,double pBeta,double pEccentricity,double pGamma,double pK,double pMassSol,double pMassSun,double pMassNuclei,double pB,double pW, double pKMigration, double pMigrationFinalFraction)
     {
     A = pA ;
     Alpha =pAlpha;
@@ -88,6 +95,7 @@ DoleParams::DoleParams( double pA, double pAlpha,double pBeta,double pEccentrici
     B = pB;
     W = pW;   
     KMigration = pKMigration; // Set migration coefficient
+    MigrationFinalFraction = pMigrationFinalFraction; // Set QMigration
 }
 
 
@@ -263,8 +271,8 @@ struct Nucleus {
     aRad,          // orbital radius at apogee
     pAttr,         // grav attract dist at perigee
     aAttr;         // grav attract dist at apogee
-    enum {
-    Rock, GasGiant
+    enum PlanetType { // Now explicitly named PlanetType
+        Rock, Icy, GasGiant 
     }   type;          // type of planet
 
     Nucleus();
@@ -274,7 +282,8 @@ struct Nucleus {
     double highbound(DoleParams *params);
 
     // --- New helper functions for planet properties ---
-    double get_radius_meters();
+    // Returns radius in kilometers
+    double get_radius_km(); 
     double get_temperature_k();
 };
 
@@ -282,7 +291,7 @@ Nucleus::Nucleus() {
     axis = eccen = mass = 0;
     pRad = aRad = 0;
     pAttr = aAttr = 0;
-    type = Rock;
+    type = Nucleus::Rock; // Default to Rock, will be determined later
 }
 
 double Nucleus::lowbound(DoleParams *params) {
@@ -313,11 +322,14 @@ void Nucleus::dump(int num, std::ostream &o, DoleParams *params) {
     o << "\tRadius\t\t" << axis << '\n';
     o << "\tEccentricity\t" << eccen << '\n';
     o << "\tMass\t\t" << mass << '\n';
-    o << "\tType\t\t" << ((type == GasGiant) ? "Gas giant" : "Rocky") << '\n';
+    o << "\tType\t\t";
+    if (type == Nucleus::GasGiant) o << "Gas giant"; // Corrected: Nucleus::GasGiant
+    else if (type == Nucleus::Icy) o << "Icy";      // Corrected: Nucleus::Icy
+    else o << "Rocky";
+    o << '\n';
 
     o << "\tRange          = [" << lowrange << "," << highrange << "]\n";
     o << "\tX[pa]limit     = [" << xplimit << "," << xalimit << "]\n";
-    o << "\tX{peri,apo}gee = [" << pAttr << "," << aAttr << "]\n";
     o << "\tR{peri,apo}gee = [" << pRad << "," << aRad << "]\n";
 
     o << "\tCritical Mass  = " << massCrit << ' '
@@ -325,26 +337,33 @@ void Nucleus::dump(int num, std::ostream &o, DoleParams *params) {
 }
 
 // --- Implementation of new helper functions for Nucleus ---
-double Nucleus::get_radius_meters() {
+double Nucleus::get_radius_km() {
     double mass_kg = this->mass * SOLAR_MASS_TO_EARTH_MASS * EARTH_MASS_KG;
     double density_kg_m3;
 
-    if (this->type == Rock) {
+    if (this->type == Nucleus::Rock) { // Corrected: Nucleus::Rock
         density_kg_m3 = EARTH_DENSITY_KG_M3;
-    } else { // GasGiant
+    } else if (this->type == Nucleus::Icy) { // Corrected: Nucleus::Icy
+        density_kg_m3 = ICE_DENSITY_KG_M3; 
+    }
+    else { // GasGiant
         density_kg_m3 = JUPITER_DENSITY_KG_M3; 
     }
 
     // Volume V = Mass / Density
-    // Radius R = (3V / 4pi)^(1/3)
-    return std::cbrt((3 * mass_kg) / (4 * M_PI * density_kg_m3));
+    // Radius R = (3V / 4pi)^(1/3) in meters
+    double radius_meters = std::cbrt((3 * mass_kg) / (4 * M_PI * density_kg_m3));
+    return radius_meters / 1000.0; // Convert to kilometers
 }
 
 double Nucleus::get_temperature_k() {
     double albedo;
-    if (this->type == Rock) {
+    if (this->type == Nucleus::Rock) { // Corrected: Nucleus::Rock
         albedo = ALBEDO_ROCKY_PLANET;
-    } else { // GasGiant
+    } else if (this->type == Nucleus::Icy) { // Corrected: Nucleus::Icy
+        albedo = ALBEDO_ICY_PLANET;
+    }
+    else { // GasGiant
         albedo = ALBEDO_GAS_GIANT;
     }
 
@@ -365,7 +384,41 @@ double Nucleus::get_temperature_k() {
 
 int main(int ac, char *av[])
 {
-    int dumpflag = 1;
+    // --- Help Option Check ---
+    for (int i = 1; i < ac; i++) {
+        if (strcmp(av[i], "-h") == 0 || strcmp(av[i], "--help") == 0) {
+            std::cout << "Käyttö: " << av[0] << " [asetukset]\n";
+            std::cout << "Simuloi planeettojen muodostumista ja migraatiota Dole-mallin pohjalta.\n\n";
+            std::cout << "Asetukset:\n";
+            std::cout << "  -h, --help           Näytä tämä ohjeviesti ja poistu.\n";
+            std::cout << "  -dump                Tulosta yksityiskohtaisia tietoja konsoliin.\n";
+            std::cout << "  -seed <luku>         Aseta satunnaislukugeneraattorin siemen (oletus: nykyinen aika).\n";
+            std::cout << "  -maxplanets <luku>   Maksimi planeettojen määrä (oletus: 20).\n";
+            std::cout << "  -aumin <AU>          Minimi etäisyys (AU) planeetan muodostumiselle (oletus: 0.3).\n";
+            std::cout << "  -aumax <AU>          Maksimi etäisyys (AU) planeetan muodostumiselle (oletus: 50.0).\n";
+            std::cout << "  -A <arvo>            Dole-mallin parametri A (oletus: 0.00150).\n";
+            std::cout << "  -Alpha <arvo>        Dole-mallin parametri Alpha (oletus: 5.0).\n";
+            std::cout << "  -Beta <arvo>         Dole-mallin parametri Beta (oletus: 0.5).\n";
+            std::cout << "  -Eccentricity <arvo> Dole-mallin parametri Eccentricity (oletus: 0.15).\n";
+            std::cout << "  -Gamma <arvo>        Dole-mallin parametri Gamma (oletus: 0.333333).\n";
+            std::cout << "  -K <arvo>            Dole-mallin parametri K (oletus: 50.0).\n";
+            std::cout << "  -MassSol <arvo>      Auringon massa (oletus: 1.0).\n";
+            std::cout << "  -MassSun <arvo>      Auringon massa (oletus: 1.0).\n";
+            std::cout << "  -MassNuclei <arvo>   Alkunukleuksen massa (oletus: 1e-15 * MassSun).\n";
+            std::cout << "  -B <arvo>            Dole-mallin parametri B (oletus: 1.2e-5 * MassSun).\n";
+            std::cout << "  -W <arvo>            Dole-mallin parametri W (oletus: 0.2).\n";
+            std::cout << "  -KMigration <kerroin> Migraatiokerroin massan keräämisen aikana (oletus: 0.0, ei migraatiota).\n";
+            std::cout << "                       Positiivinen arvo siirtää planeettaa sisäänpäin.\n";
+            std::cout << "  -QMigration <kerroin> Migraatiokerroin massan keräämisen JÄLKEEN (oletus: 1.0, ei migraatiota).\n";
+            std::cout << "                       Arvo 0.1 siirtää planeetan 10% alkuperäisestä etäisyydestään.\n";
+            std::cout << "                       (Esim. 10 AU -> 1 AU, jos kerroin 0.1).\n";
+            std::cout << "\nLumiraja asetettu arvoon: " << SNOW_LINE_AU << " AU.\n";
+            return 0; // Poistu ohjelmasta ohjeen näyttämisen jälkeen
+        }
+    }
+    // --- End Help Option Check ---
+
+    int dumpflag = 0; // Default to no console dump unless -dump is specified
 
     long seed = time(0);
     int MaxPlanets = 20;    // Size of dynamic array containing generated planets
@@ -385,7 +438,8 @@ int main(int ac, char *av[])
     double pMassNuclei = pMassSun * 1e-15;
     double pB = pMassSun * 1.2e-5;
     double pW = .2;
-    double pKMigration = 0.0; // New default value: no migration
+    double pKMigration = 0.0; // Default value: no migration
+    double pMigrationFinalFraction = 1.0; // Default: no post-accretion migration
 
     // Command-line argument parsing
     for (int i = 1; i < ac; i++) { // Start from 1 to skip program name
@@ -465,19 +519,23 @@ int main(int ac, char *av[])
             if (i + 1 < ac) pW = std::atof(av[++i]);
             else { std::cerr << "Error: -W requires a value." << std::endl; return 1; }
         }
-        else if (strcmp(av[i], "-KMigration") == 0) { // Migration coefficient
+        else if (strcmp(av[i], "-KMigration") == 0) { // Migration coefficient during accretion
             if (i + 1 < ac) pKMigration = std::atof(av[++i]);
             else { std::cerr << "Error: -KMigration requires a value." << std::endl; return 1; }
         }
+        else if (strcmp(av[i], "-QMigration") == 0) { // Post-accretion migration coefficient
+            if (i + 1 < ac) pMigrationFinalFraction = std::atof(av[++i]);
+            else { std::cerr << "Error: -QMigration requires a value." << std::endl; return 1; }
+        }
         else {
-            std::cerr << "Unknown argument: " << av[i] << std::endl;
-            // Optionally print usage here
+            std::cerr << "Tuntematon argumentti: " << av[i] << std::endl;
+            std::cerr << "Käytä -h tai --help nähdäksesi ohjeet.\n";
             return 1; // Exit on unknown argument
         }
     }
 
     // Create DoleParams object with potentially overridden values
-    DoleParams *params = new DoleParams(pA, pAlpha, pBeta, pEccentricity, pGamma, pK, pMassSol, pMassSun, pMassNuclei, pB, pW, pKMigration);
+    DoleParams *params = new DoleParams(pA, pAlpha, pBeta, pEccentricity, pGamma, pK, pMassSol, pMassSun, pMassNuclei, pB, pW, pKMigration, pMigrationFinalFraction);
 
     double   nucleieccent, nucleiradius, masslast, eccent, mass, rperigee,
              rapogee, radius, mu, xperigee, xapogee, masscritical,
@@ -558,6 +616,8 @@ int main(int ac, char *av[])
     body.axis = nucleiradius;
     body.eccen = nucleieccent;
     body.mass = params->MassNuclei;
+    // Set initial type, will be determined accurately later
+    body.type = Nucleus::Rock; // Corrected: Nucleus::Rock
 
     // This is only used on first pass of nuclei
     masslast = 0;
@@ -713,13 +773,13 @@ int main(int ac, char *av[])
 
         body.mass = mass = masspass;
 
-        // Migration logic:
+        // KMigration logic (during accretion)
         double delta_axis = 0.0;
         if (params->KMigration != 0.0) {
             delta_axis = -params->KMigration * body.axis; 
         }
 
-        // Apply migration to the semi-major axis
+        // Apply KMigration to the semi-major axis
         body.axis += delta_axis;
 
         // Ensure the planet stays within the defined AU bounds
@@ -736,12 +796,9 @@ int main(int ac, char *av[])
         // check for mass growth convergence
         if (mass == 0)
         mass = 1e-15;
-        if (mass >= masscritical) {
-        body.type = Nucleus::GasGiant;
-        }
         
         // **Revised convergence condition:**
-        // Break if mass has converged. Migration will occur for the next overall nucleus iteration.
+        // Break if mass has converged. KMigration will occur for the next overall nucleus iteration.
         if (std::fabs(masslast / mass - 1) < 0.01) {
             break; 
         }
@@ -750,26 +807,47 @@ int main(int ac, char *av[])
         iterate = 1; 
     }    // --- End of mass accumulation loop ---
 
+    // Set planet type based on final mass and position
+    if (mass >= masscritical) {
+        body.type = Nucleus::GasGiant;
+    } else {
+        // If not a gas giant, check against snow line for Rocky or Icy
+        if (body.axis >= SNOW_LINE_AU) {
+            body.type = Nucleus::Icy;
+        } else {
+            body.type = Nucleus::Rock;
+        }
+    }
+
+
     // Clear out bands emptied of dust
     if (dustcheck == 1) {
         std::cout << "event " << nuclei_count << " completed mass growth; swept from "
                   << dp << " to " << da;
-        if (mass > masscritical)
+        if (body.type == Nucleus::GasGiant)
         std::cout << "(gas giant)";
+        else if (body.type == Nucleus::Icy)
+        std::cout << "(icy)";
+        else
+        std::cout << "(rocky)";
         std::cout << std::endl;
     }
     if (lowband == highband)
         highband++;
 
     for (int bandno = lowband; bandno <= highband; bandno++) {
-        if (mass < masscritical) {
-        if (band[bandno] == Mixed)
-            band[bandno] = Gas;
+        if (mass < masscritical) { // For small planets, clear as Gas or Mixed to Empty based on type?
+            // This logic is a bit ambiguous in the original code. 
+            // For simplicity, let's assume if it's a small planet,
+            // it still clears the band as "Gas" (if mixed) or "Empty" if it consumes everything.
+            // The original logic here seemed to set band to Gas if Mixed for non-giants.
+            if (band[bandno] == Mixed)
+                band[bandno] = Gas; 
         }
 
         if (mass >= masscritical) {
-        // Clear out bands emptied by gas
-        body.type = Nucleus::GasGiant;
+        // Clear out bands emptied by gas giant formation
+        // body.type = Nucleus::GasGiant; // This was here, moved above
         if (band[bandno] == Gas || band[bandno] == Mixed)
             band[bandno] = Empty;
         }
@@ -803,12 +881,29 @@ int main(int ac, char *av[])
         neweccent = sqr(std::abs(1 - std::pow((term1 + term2) / term3, 2)));
         newmass = body.mass + nuclei[i].mass;
 
+        // When merging, the new planet's type should ideally reflect its final state.
+        // For simplicity, if either was a gas giant, the result is a gas giant.
+        // Otherwise, re-evaluate based on new mass and position.
+        Nucleus::PlanetType merged_type; // Corrected: Using Nucleus::PlanetType
+        if (body.type == Nucleus::GasGiant || nuclei[i].type == Nucleus::GasGiant) {
+            merged_type = Nucleus::GasGiant;
+        } else {
+            // Re-evaluate based on new_axis
+            if (newradius >= SNOW_LINE_AU) {
+                merged_type = Nucleus::Icy;
+            } else {
+                merged_type = Nucleus::Rock;
+            }
+        }
+
+
         nuclei[i].axis = 0;
         nuclei[i].eccen = 0;
         nuclei[i].mass = 0;
         body.axis = newradius;
         body.eccen = neweccent;
         body.mass = newmass;
+        body.type = merged_type; // Set merged type
         body.pRad = newradius * (1 - neweccent);
         body.aRad = newradius * (1 + neweccent);
         munew = std::pow(newmass / (1 + newmass), .25);
@@ -831,8 +926,18 @@ int main(int ac, char *av[])
     ps_line(std::log10(lowband2 * 0.2), yBand, std::log10(highband2 * 0.2), yBand);
     yBand -= 0.01;
 
+    // This block moved up to after mass accumulation loop
+    /*
     if (body.mass >= masscritical)
         body.type = Nucleus::GasGiant;
+    else { // Not a gas giant, check for rocky/icy
+        if (body.axis >= SNOW_LINE_AU) {
+            body.type = Nucleus::Icy;
+        } else {
+            body.type = Nucleus::Rock;
+        }
+    }
+    */
 
     // Add new planet
     if (nplanet >= MaxPlanets) { 
@@ -862,7 +967,40 @@ int main(int ac, char *av[])
     std::cout << " all bands taken....." << nuclei_count << "     nuclei used       " << std::endl;
     ps_text(2.2, 0.9, "emptied bands");
 
-    // Sort nuclei by radius
+    // --- Apply QMigration AFTER all planets have been formed and merged ---
+    if (params->MigrationFinalFraction != 1.0) {
+        std::cout << "Applying post-accretion migration (QMigration)...\n";
+        for (int i = 0; i < nplanet; ++i) {
+            if (nuclei[i].axis > 0) { // Only migrate valid planets
+                double old_axis = nuclei[i].axis;
+                nuclei[i].axis *= params->MigrationFinalFraction;
+                
+                // Ensure it stays within bounds after migration
+                if (nuclei[i].axis < aumin) nuclei[i].axis = aumin;
+                if (nuclei[i].axis > aumax) nuclei[i].axis = aumax;
+
+                // Update orbital parameters as eccentricity remains the same but axis changes
+                nuclei[i].pRad = nuclei[i].axis * (1 - nuclei[i].eccen);
+                nuclei[i].aRad = nuclei[i].axis * (1 + nuclei[i].eccen);
+                double munew = std::pow(nuclei[i].mass / (1 + nuclei[i].mass), .25);
+                nuclei[i].pAttr = nuclei[i].pRad * munew;
+                nuclei[i].aAttr = nuclei[i].aRad * munew;
+
+                // Re-evaluate type after QMigration if it's not a gas giant
+                if (nuclei[i].type != Nucleus::GasGiant) { // Corrected: Nucleus::GasGiant
+                     if (nuclei[i].axis >= SNOW_LINE_AU) {
+                         nuclei[i].type = Nucleus::Icy; // Corrected: Nucleus::Icy
+                     } else {
+                         nuclei[i].type = Nucleus::Rock; // Corrected: Nucleus::Rock
+                     }
+                }
+                // For debugging:
+                // std::cout << "Planet " << i << ": Old Axis " << old_axis << " AU -> New Axis " << nuclei[i].axis << " AU\n";
+            }
+        }
+    }
+
+    // Sort nuclei by radius (again, as QMigration might change order)
     std::qsort(static_cast<void *>(nuclei), nplanet, sizeof(Nucleus), nucleusCompare); 
 
     // Draw planets, gas giants as filled circles
@@ -871,9 +1009,15 @@ int main(int ac, char *av[])
     massSum += nuclei[i].mass;
 
     double au = std::log10(nuclei[i].axis);
-    double r = std::cbrt(nuclei[i].mass);
+    // Use a dummy radius for plotting on log-scale for visibility
+    // This radius is not the physical radius, just for visualization on the PS plot.
+    double r_plot = std::cbrt(nuclei[i].mass * 1e5); // Scale for better visibility if needed
 
-    ps_circle(au, 0, r, nuclei[i].type == Nucleus::GasGiant);
+    // Fill circle for gas giants, outline for rocky, different fill for icy?
+    // For PS, all non-GasGiant (Rocky, Icy) will be outlined for simplicity,
+    // as PostScript doesn't easily support multiple fill patterns/colors without more complex code.
+    bool fill_plot = (nuclei[i].type == Nucleus::GasGiant); // Corrected: Nucleus::GasGiant
+    ps_circle(au, 0, r_plot, fill_plot);
     }
     ps_showpage();
 
@@ -897,7 +1041,8 @@ int main(int ac, char *av[])
     // --- CSV Output Section ---
     std::ofstream csv_file("planets_output.csv");
     if (csv_file.is_open()) {
-        csv_file << "id,distance_au,ecc,mass_mearths,type,planet_radius_au,planet_temperature_k\n";
+        // Updated header for planet_radius_km
+        csv_file << "id,distance_au,ecc,mass_mearths,type,planet_radius_km,planet_temperature_k\n";
         csv_file << std::fixed << std::setprecision(8); // Set precision for output
 
         for (int i = 0; i < nplanet; i++) {
@@ -907,11 +1052,18 @@ int main(int ac, char *av[])
                 csv_file << nuclei[i].eccen << ","; // ecc
                 csv_file << nuclei[i].mass * SOLAR_MASS_TO_EARTH_MASS << ","; // mass_mearths
 
-                std::string planet_type = (nuclei[i].type == Nucleus::GasGiant) ? "GasGiant" : "Rocky";
-                csv_file << planet_type << ","; // type
+                std::string planet_type_str;
+                if (nuclei[i].type == Nucleus::GasGiant) { // Corrected: Nucleus::GasGiant
+                    planet_type_str = "GasGiant";
+                } else if (nuclei[i].type == Nucleus::Icy) { // Corrected: Nucleus::Icy
+                    planet_type_str = "Icy";
+                } else {
+                    planet_type_str = "Rocky";
+                }
+                csv_file << planet_type_str << ","; // type
 
-                double radius_meters = nuclei[i].get_radius_meters();
-                csv_file << radius_meters / AU_TO_METERS << ","; // planet_radius in AU
+                // Use the new get_radius_km function
+                csv_file << nuclei[i].get_radius_km() << ","; // planet_radius in KM
 
                 double temperature_k = nuclei[i].get_temperature_k();
                 csv_file << temperature_k << "\n"; // planet_temperature_k

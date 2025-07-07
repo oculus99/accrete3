@@ -1,3 +1,6 @@
+
+// v 0002 own density distribution
+
 #include <iostream>
 #include <fstream>    // For std::ofstream
 #include <cstring>    // For strcmp (C-style string functions)
@@ -40,7 +43,7 @@ const double ALBEDO_GAS_GIANT = 0.5;
 const double ALBEDO_ICY_PLANET = 0.7; // Higher albedo for icy worlds
 
 // New: Snow Line definition
-const double SNOW_LINE_AU = 2.5; // Lumiraja AU:na (2.5 * ekosfäärin etäisyys, joka Auringolla 1 AU)
+const double SNOW_LINE_AU = 5.0; // Lumiraja AU:na (2.5 * ekosfäärin etäisyys, joka Auringolla 1 AU)
 
 // --- Constants for material composition ---
 // Proportions for rocky/iron dust inside snow line
@@ -97,11 +100,11 @@ struct DoleParams {
 
 // Initialize to defaults. See Sagan's article for insight into changing them.
 DoleParams::DoleParams() {
-    A = .00150;
+    A = .00150;  // orig  .00150
     Alpha = 5;
+    Gamma = 1 / 3.0;
     Beta = 0.5;
     Eccentricity = 0.15; //0.15
-    Gamma = 1 / 3.0;
     K = 50;
     MassSol = 1;
     MassSun = MassSol * 1.0;
@@ -131,7 +134,9 @@ DoleParams::DoleParams( double pA, double pAlpha,double pBeta,double pEccentrici
 
 // Private helper to get the base density before composition or snow line factor
 double DoleParams::base_dust_density(double au) {
-    return A * std::exp(-Alpha * std::pow(au, Gamma));
+  //  return A * std::exp(-Alpha * std::pow(au, Gamma));
+    
+    return A* std::pow(au/5,-0.333)*0.0025 ;
 }
 
 // Return dust density for iron component
@@ -601,13 +606,13 @@ int main(int ac, char *av[])
     int dumpflag = 0; // Default to no console dump unless -dump is specified
 
     long seed = time(0);
-    int MaxPlanets = 20;     // Size of dynamic array containing generated planets
+    int MaxPlanets = 1000;     // orig 20 Size of dynamic array containing generated planets
 
     double aumin = 0.3;  // Changed to double for precision
     double aumax = 50;   // Changed to double for precision
 
     // Default DoleParams values (as in the DoleParams constructor)
-    double pA = .00150;
+    double pA = .00150; // 0.00150;
     double pAlpha = 5;
     double pBeta = 0.5;
     double pEccentricity = 0.15;
@@ -973,6 +978,8 @@ int main(int ac, char *av[])
 
 
 	export_planets_to_csv(planets, "planet_data.csv");
+	
+	exit(-1);
 
     // Output all formed planets
     for (int i = 0; i < nplanet; i++) {
@@ -1130,6 +1137,13 @@ void export_planets_to_csv(const std::vector<Nucleus>& planets, const std::strin
                  << p_rock << ","
                  << p_ice << ","
                  << p_gas << "\n";
+    
+    
+    if( mass_earth_masses>1e-4) {
+    std::cout<<planet.axis<< ","    << mass_earth_masses << ","<< planet_type_str << "\n";
+	
+		}
+    
     }
 
     csv_file.close();

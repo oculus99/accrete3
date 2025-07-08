@@ -933,23 +933,7 @@ int main(int ac, char *av[])
 
     std::sort(planets.begin(), planets.end());
 
-    std::cout << "\n--- Planeettajärjestelmän Yhteenveto ---\n";
-    std::cout << "Simulaation siemen: " << seed << "\n";
-    std::cout << "Generoidut planeetat: " << planets.size() << "\n";
-    std::cout << "------------------------------------------\n\n";
 
-    std::cout << std::left << std::setw(5) << "Nro"
-              << std::left << std::setw(12) << "Etäisyys (AU)"
-              << std::left << std::setw(15) << "Massa (M_Earth)"
-              << std::left << std::setw(12) << "Tyyppi"
-              << std::left << std::setw(12) << "Säde (km)"
-              << std::left << std::setw(12) << "Lämpötila (K)"
-              << std::left << std::setw(10) << "Fe (%)"
-              << std::left << std::setw(10) << "Kivi (%)"
-              << std::left << std::setw(10) << "Jää (%)"
-              << std::left << std::setw(10) << "Kaasu (%)"
-              << std::endl;
-    std::cout << std::string(110, '-') << std::endl;
 
 	int planetnum=planets.size();
 
@@ -957,10 +941,33 @@ int main(int ac, char *av[])
   
  //   printf("%lf %lf ", planets[4].axis, planets[4].mass*333000);
 //exit(-1);
-
+//	char romans1[50][128]={"I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XI", "XII", "XIII", "XIV", "XV", "XVI"};
+//	char alphabets1[50][128]={"a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o"};
+//	printf(" %s", romans1[2]);
+	
+//	exit(-1);
+	
    generate_and_render_povray(planets, planetnum);
 
 
+
+    std::cout << "\n--- Planeet system ---\n";
+    std::cout << "Seed of simulation: " << seed << "\n";
+    std::cout << "Generated planets: " << planets.size() << "\n";
+    std::cout << "------------------------------------------\n\n";
+
+    std::cout << std::left << std::setw(5) << "Planet # "
+              << std::left << std::setw(12) << "Distance (AU) "
+              << std::left << std::setw(12) << "Mass (M_Earth) "
+              << std::left << std::setw(12) << "Type "
+              << std::left << std::setw(12) << "Radius (km) "
+              << std::left << std::setw(12) << "Temperature (K) "
+              << std::left << std::setw(10) << "Fe (%) "
+              << std::left << std::setw(10) << "Rock (%) "
+              << std::left << std::setw(10) << "Ice (%) "
+              << std::left << std::setw(10) << "Gas (%) "
+              << std::endl;
+    std::cout << std::string(110, '-') << std::endl;
     for (size_t i = 0; i < planets.size(); ++i) {
         const Nucleus &p = planets[i];
 
@@ -1062,6 +1069,9 @@ int generate_and_render_povray(std::vector<Nucleus> planets, int planetnum) {
     char output_image_filename[] = "system_render.png";
 	char buffu [256]="";
     char command[512]="";
+
+	char romans1[50][128]={"I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XI", "XII", "XIII", "XIV", "XV", "XVI"};
+
     
     
     memset(buffu,0,256);
@@ -1112,7 +1122,15 @@ int generate_and_render_povray(std::vector<Nucleus> planets, int planetnum) {
 
     fprintf(fp_pov, "sphere {\n");
     fprintf(fp_pov, "  <0, 0, 0>, %f // Center and radius\n", star_radius_pov);
-    fprintf(fp_pov, "  pigment { color <1,1,0.5> filter 0.5 } // Yellow, semi-transparent for glow effect\n");
+    fprintf(fp_pov, "  pigment {  ");
+  	fprintf(fp_pov, " crackle scale 0.3 \n");	
+	fprintf(fp_pov, " color_map { \n");			
+			
+	fprintf(fp_pov, "  [0.0 rgb <1,1,0.5>*0.8 ] \n");
+	fprintf(fp_pov, "  [1.0 rgb <1,1,0.75> ] \n");	
+				
+	fprintf(fp_pov, "  }// ... color map \n");	  
+     fprintf(fp_pov, "   } // Yellow, semi-transparent for glow effect\n");
     fprintf(fp_pov, "  // Add an emissive finish for a glowing effect\n");
     fprintf(fp_pov, "  finish { ambient 1 diffuse 0 emission 1 }\n");
     fprintf(fp_pov, "  // Add a halo for a more realistic star glow (requires photons in render settings)\n");
@@ -1183,14 +1201,72 @@ int generate_and_render_povray(std::vector<Nucleus> planets, int planetnum) {
 		  {
 			fprintf(fp_pov, "  pigment { color rgb <1, 1, 1> } \n");
 	        fprintf(fp_pov, "  finish { phong 0.8 } // Shiny finish\n");
-		        fprintf(fp_pov, "  normal { crackle turbulence 0.2  } // \n");
+		        fprintf(fp_pov, "  normal { agate scale 0.1  turbulence 0.2 bump_size -0.4  } // \n");
 		  }
            
       if(planets[n].type == Nucleus::PlanetType::rock_p)
 		  {
-			fprintf(fp_pov, "  pigment { color rgb <1, 0.5, 0.3>*0.5 } \n");
-			fprintf(fp_pov, "  finish { phong 0.6 roughness 0.05 ambient 0}\n"); // Less shiny, more diffuse
-		       fprintf(fp_pov, "  normal { granite turbulence 0.2 bump_size -0.3 } // \n");
+			int earthlike=0;
+			double tempera=planets[n].get_temperature_k();
+			if( (planets[n].mass*333000)>0.8) {
+				if( (planets[n].mass*333000)<2.0) {
+		 
+		 
+					if(tempera>273.0) {
+							   if(tempera<320.0){
+											earthlike=1;
+										}
+								}
+		 
+			
+							} 
+		 
+					}
+		 
+	//	earthlike=1;
+		if(earthlike==1)
+		{
+				fprintf(fp_pov, "  pigment {  \n");
+			
+				fprintf(fp_pov, " wrinkles  scale 5 warp {turbulence 0.01 } scale 0.2  scale 0.5  \n");	
+				fprintf(fp_pov, " color_map { \n");			
+			
+				fprintf(fp_pov, "  [0.0 rgb <0,0,1> ] \n");
+				fprintf(fp_pov, "  [0.5 rgb <0,0,1> ] \n");
+				fprintf(fp_pov, "  [0.5 rgb <0,1,0> ] \n");	
+			    fprintf(fp_pov, "  [1.0 rgb <0,1,0> ] \n");	
+								
+				fprintf(fp_pov, "  }// ... color map \n");				
+			
+				fprintf(fp_pov, " } //...pigment \n  ");
+				fprintf(fp_pov, "  finish { phong 0.8 } // Shiny finish\n");
+				fprintf(fp_pov, "  normal { wrinkles scale y/10 scale 3 warp {turbulence 0.1} scale 0.1 bump_size 0.1 } // \n");
+			}
+			else
+				{
+				fprintf(fp_pov, "  pigment {  \n");
+			
+				fprintf(fp_pov, " wrinkles  scale 5 warp {turbulence 0.01 } scale 0.2  scale 0.5  \n");	
+				fprintf(fp_pov, " color_map { \n");			
+			
+				fprintf(fp_pov, "  [0.0 rgb <0.6, 0.3,0> ] \n");
+				fprintf(fp_pov, "  [0.5 rgb <0.6, 0.3, 0.1> ] \n");
+			//	fprintf(fp_pov, "  [0.5 rgb <0.8,0.5,0.5> ] \n");	
+			    fprintf(fp_pov, "  [1.0 rgb <1,1,1>*0.5 ] \n");	
+								
+				fprintf(fp_pov, "  }// ... color map \n");				
+			
+				fprintf(fp_pov, " } //...pigment \n  ");				
+				
+					fprintf(fp_pov, "  finish { phong 0.6 roughness 0.05 ambient 0}\n"); // Less shiny, more diffuse
+					fprintf(fp_pov, "  normal { granite scale 0.5 turbulence 0.2 bump_size -0.3 } // \n");	
+				}
+		
+		
+	//	 }
+		 
+		 
+		 
 		  }
            
 /*
@@ -1218,8 +1294,10 @@ int generate_and_render_povray(std::vector<Nucleus> planets, int planetnum) {
       fprintf(fp_pov, "ttf \"timrom.ttf\" ");
 
     memset(buffu,0,256);
-  sprintf( buffu ,"\"%d\" ", counter );
-  fprintf(fp_pov,"%s", buffu);
+  sprintf( buffu ,"\"%d\" ", counter+1 );
+ // fprintf(fp_pov,"%s", buffu);
+ fprintf(fp_pov," \"%s\" ", romans1[counter]);
+ 
   fprintf(fp_pov, " 0.15,0 \n pigment {color rgb <1,1,1> }\n");
       fprintf(fp_pov, " translate y*-2.25 \n\n");
     fprintf(fp_pov, " translate x*%f \n\n", planet_x-0.25); // planet_x

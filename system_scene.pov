@@ -27,7 +27,7 @@ sphere {
 
 // Planet #0
 sphere {
-  <3.000000, 0.000000, 0.000000>, 0.488377 // Position and radius
+  <3.000000, 0.000000, 0.000000>, 0.489257 // Position and radius
   pigment {  
  wrinkles  scale 5 warp {turbulence 0.01 } scale 0.2  scale 0.5  
  color_map { 
@@ -53,7 +53,7 @@ ttf "timrom.ttf"  "I"  0.15,0
 
 // Planet #1
 sphere {
-  <5.000000, 0.000000, 0.000000>, 0.505062 // Position and radius
+  <5.000000, 0.000000, 0.000000>, 0.505971 // Position and radius
   pigment {  
  wrinkles  scale 5 warp {turbulence 0.01 } scale 0.2  scale 0.5  
  color_map { 
@@ -78,10 +78,16 @@ ttf "timrom.ttf"  "II"  0.15,0
 
 // Planet #2
 sphere {
-  <7.000000, 0.000000, 0.000000>, 0.330085 // Position and radius
-  pigment { color rgb <1, 1, 1> } 
-  finish { phong 0.8 } // Shiny finish
-  normal { agate scale 0.1  turbulence 0.2 bump_size -0.4  } // 
+  <7.000000, 0.000000, 0.000000>, 1.587925 // Position and radius
+  pigment {  
+ gradient y  sine_wave frequency 3 scale 5 warp {turbulence 0.5 } scale 0.5   
+ color_map { 
+  [0.0 rgb <1,0.7,0.5> ] 
+  [1.0 rgb <1,1,1> ] 
+  }// ... color map 
+ } //...pigment 
+    finish { phong 0.8 } // Shiny finish
+  normal { wrinkles scale y/10 scale 3 warp {turbulence 0.1} scale 0.1 bump_size 0.1 } // 
 }
 
 text { 
@@ -96,16 +102,10 @@ ttf "timrom.ttf"  "III"  0.15,0
 
 // Planet #3
 sphere {
-  <9.000000, 0.000000, 0.000000>, 1.583489 // Position and radius
-  pigment {  
- gradient y  sine_wave frequency 3 scale 5 warp {turbulence 0.5 } scale 0.5   
- color_map { 
-  [0.0 rgb <1,0.7,0.5> ] 
-  [1.0 rgb <1,1,1> ] 
-  }// ... color map 
- } //...pigment 
-    finish { phong 0.8 } // Shiny finish
-  normal { wrinkles scale y/10 scale 3 warp {turbulence 0.1} scale 0.1 bump_size 0.1 } // 
+  <9.000000, 0.000000, 0.000000>, 0.311598 // Position and radius
+  pigment { color rgb <1, 1, 1> } 
+  finish { phong 0.8 } // Shiny finish
+  normal { agate scale 0.1  turbulence 0.2 bump_size -0.4  } // 
 }
 
 text { 
@@ -120,7 +120,7 @@ ttf "timrom.ttf"  "IV"  0.15,0
 
 // Planet #4
 sphere {
-  <11.000000, 0.000000, 0.000000>, 0.344303 // Position and radius
+  <11.000000, 0.000000, 0.000000>, 0.299464 // Position and radius
   pigment { color rgb <1, 1, 1> } 
   finish { phong 0.8 } // Shiny finish
   normal { agate scale 0.1  turbulence 0.2 bump_size -0.4  } // 
@@ -138,7 +138,7 @@ ttf "timrom.ttf"  "V"  0.15,0
 
 // Planet #5
 sphere {
-  <13.000000, 0.000000, 0.000000>, 0.278804 // Position and radius
+  <13.000000, 0.000000, 0.000000>, 0.340137 // Position and radius
   pigment { color rgb <1, 1, 1> } 
   finish { phong 0.8 } // Shiny finish
   normal { agate scale 0.1  turbulence 0.2 bump_size -0.4  } // 

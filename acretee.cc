@@ -353,7 +353,7 @@ struct Nucleus {
     }
 };
 
-void export_planets_to_csv(const std::vector<Nucleus> &planets, const std::string &filename);
+
 
 Nucleus::Nucleus() {
     axis = eccen = mass = 0;
@@ -501,6 +501,7 @@ struct BandMaterial {
 
 int generate_and_render_povray(std::vector<Nucleus> planets, int planetnum) ;
 
+void export_planets_to_csv(std::vector<Nucleus>  planets, std::string filename);
 
 int main(int ac, char *av[])
 {
@@ -949,7 +950,7 @@ int main(int ac, char *av[])
 	
    generate_and_render_povray(planets, planetnum);
 
-
+	export_planets_to_csv(planets,(std::string) "planets.csv");
 
     std::cout << "\n--- Planeet system ---\n";
     std::cout << "Seed of simulation: " << seed << "\n";
@@ -1045,7 +1046,6 @@ int main(int ac, char *av[])
 
     return 0;
 }
-
 
 
 
@@ -1345,3 +1345,98 @@ else {
 
 
 
+void export_planets_to_csv(std::vector<Nucleus> planets,  std::string filename) {
+
+	Nucleus planet;
+	
+    int n=0;
+	int planetnum=planets.size();
+
+    std::ofstream csv_file(filename);
+
+
+    std::vector<Nucleus> sorted_planets = planets;
+
+    std::sort( sorted_planets.begin(), sorted_planets.end() );
+
+    if (!csv_file.is_open()) {
+        std::cerr << "Error: Could not open CSV file " << filename << " for writing.\n";
+        return;
+    }
+
+    // Write CSV header
+    csv_file << "radius_au,eccentricity,mass_mearths,planet_type,p_iron,p_rock,p_ice,p_gas\n";
+	
+	printf("\n %i ", planetnum);
+	
+	for (n=0;n<planetnum;n++)
+	{
+	 planet=planets[n];
+	
+		  //      csv_file << std::fixed << std::setprecision(6)
+           //      << planet.axis << ","
+            //     << planet.eccen << ",";
+     
+             double mass_earth_masses = planet.mass * SOLAR_MASS_TO_EARTH_MASS;
+
+        double total_solid_mass = planet.accumulated_iron_mass + planet.accumulated_rock_mass + planet.accumulated_ice_mass;
+        double gas_mass = planet.mass - total_solid_mass;
+        if (gas_mass < 0) gas_mass = 0; // Ensure non-negative gas mass
+
+        double total_mass_for_fractions = total_solid_mass + gas_mass;
+
+        double p_iron = 0.0;
+        double p_rock = 0.0;
+        double p_ice = 0.0;
+        double p_gas = 0.0;
+
+        if (total_mass_for_fractions > 0) {
+            p_iron = planet.accumulated_iron_mass / total_mass_for_fractions;
+            p_rock = planet.accumulated_rock_mass / total_mass_for_fractions;
+            p_ice = planet.accumulated_ice_mass / total_mass_for_fractions;
+            p_gas = gas_mass / total_mass_for_fractions;
+        }
+
+        std::string planet_type_str;
+        switch (planet.type) {
+            case Nucleus::iron_p: planet_type_str = "Iron"; break;
+            case Nucleus::rock_p: planet_type_str = "Rocky"; break;
+            case Nucleus::ice_p:  planet_type_str = "Icy"; break;
+            case Nucleus::gas_p:  planet_type_str = "Gas Giant"; break;
+        }
+
+        csv_file << std::fixed << std::setprecision(6)
+                 << planet.axis << ","
+                 << planet.eccen << ","
+                 << mass_earth_masses << ","
+                 << planet_type_str << ","
+                 << p_iron << ","
+                 << p_rock << ","
+                 << p_ice << ","
+                 << p_gas << "\n";
+     
+     
+     
+		}
+	
+	
+
+    csv_file.close();
+    std::cout << "Planet data exported to " << filename << std::endl;
+	
+
+	
+
+
+
+
+   /* 
+    
+    if( mass_earth_masses>1e-4) {
+    std::cout<<planet.axis<< " "    << mass_earth_masses << " "<< planet_type_str <<" " << p_iron << " "  << p_rock << " " << p_ice << " "<< p_gas  <<"\n";
+	
+		}
+*/    
+
+
+}

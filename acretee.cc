@@ -1126,16 +1126,16 @@ int generate_and_render_povray(std::vector<Nucleus> planets, int planetnum) {
 
 
   //  node1 = planet_head;
-    //counter = 1;
+    counter = 0;
     for (n=0; n<planetnum; n++) {
 		
-		counter=n;
+	//	counter=n;
 		
         // Calculate planet position in POV-Ray coordinates
         // Simple circular orbit for visualization. For eccentricity, you'd need more complex math.
         // We'll place them along the X-axis for simplicity in this example.
         //double planet_x =2+ log(node1->a) * distance_scale;
-		planet_x =3+n*distance_scale;  
+		planet_x =3+counter*distance_scale;  
 		planet_y = 0.0; // Assume they are on the x-z plane (y=0)
         planet_z = 0.0;
 
@@ -1143,7 +1143,8 @@ int generate_and_render_povray(std::vector<Nucleus> planets, int planetnum) {
         
         massaa=planets[n].mass*333000;
         
-
+		if(massaa>0.02)
+		{
         
         planet_pov_radius = pow((double)massaa, 0.15) * planet_radius_scale;
 		printf("\n %i %lf %lf ", counter, massaa,  planet_pov_radius);
@@ -1164,9 +1165,19 @@ int generate_and_render_povray(std::vector<Nucleus> planets, int planetnum) {
 
      if(planets[n].type == Nucleus::PlanetType::gas_p)
 		  {
-			fprintf(fp_pov, "  pigment { color rgb <0.4, 0.8, 0.6> } \n");
+			fprintf(fp_pov, "  pigment {  \n");
+			
+					fprintf(fp_pov, " gradient y  sine_wave frequency 3 scale 5 warp {turbulence 0.5 } scale 0.5   \n");	
+			fprintf(fp_pov, " color_map { \n");			
+			
+			fprintf(fp_pov, "  [0.0 rgb <1,0.7,0.5> ] \n");
+			fprintf(fp_pov, "  [1.0 rgb <1,1,1> ] \n");	
+				
+			fprintf(fp_pov, "  }// ... color map \n");				
+			
+			fprintf(fp_pov, " } //...pigment \n  ");
 	        fprintf(fp_pov, "  finish { phong 0.8 } // Shiny finish\n");
-		        fprintf(fp_pov, "  normal { wrinkles scale y/10 } // \n");
+		    fprintf(fp_pov, "  normal { wrinkles scale y/10 scale 3 warp {turbulence 0.1} scale 0.1 bump_size 0.1 } // \n");
 		  }
       if(planets[n].type == Nucleus::PlanetType::ice_p)
 		  {
@@ -1179,7 +1190,7 @@ int generate_and_render_povray(std::vector<Nucleus> planets, int planetnum) {
 		  {
 			fprintf(fp_pov, "  pigment { color rgb <1, 0.5, 0.3>*0.5 } \n");
 			fprintf(fp_pov, "  finish { phong 0.6 roughness 0.05 ambient 0}\n"); // Less shiny, more diffuse
-		       fprintf(fp_pov, "  normal { granite turbulence 0.2  } // \n");
+		       fprintf(fp_pov, "  normal { granite turbulence 0.2 bump_size -0.3 } // \n");
 		  }
            
 /*
@@ -1213,6 +1224,12 @@ int generate_and_render_povray(std::vector<Nucleus> planets, int planetnum) {
       fprintf(fp_pov, " translate y*-2.25 \n\n");
     fprintf(fp_pov, " translate x*%f \n\n", planet_x-0.25); // planet_x
       fprintf(fp_pov, " }\n\n");
+
+counter++;
+} // ... mass over limit
+else {
+//	n--;
+	}
 
     //    counter++;
     //    node1 = node1->next_planet;

@@ -14,7 +14,12 @@ light_source { <0, 0, -10> color White * 1.5 }
 
 sphere {
   <0, 0, 0>, 1.500000 // Center and radius
-  pigment { color <1,1,0.5> filter 0.5 } // Yellow, semi-transparent for glow effect
+  pigment {   crackle scale 0.3 
+ color_map { 
+  [0.0 rgb <1,1,0.5>*0.8 ] 
+  [1.0 rgb <1,1,0.75> ] 
+  }// ... color map 
+   } // Yellow, semi-transparent for glow effect
   // Add an emissive finish for a glowing effect
   finish { ambient 1 diffuse 0 emission 1 }
   // Add a halo for a more realistic star glow (requires photons in render settings)
@@ -22,15 +27,23 @@ sphere {
 
 // Planet #0
 sphere {
-  <3.000000, 0.000000, 0.000000>, 0.470426 // Position and radius
-  pigment { color rgb <1, 0.5, 0.3>*0.5 } 
-  finish { phong 0.6 roughness 0.05 ambient 0}
-  normal { granite turbulence 0.2 bump_size -0.3 } // 
+  <3.000000, 0.000000, 0.000000>, 0.488377 // Position and radius
+  pigment {  
+ wrinkles  scale 5 warp {turbulence 0.01 } scale 0.2  scale 0.5  
+ color_map { 
+  [0.0 rgb <0,0,1> ] 
+  [0.5 rgb <0,0,1> ] 
+  [0.5 rgb <0,1,0> ] 
+  [1.0 rgb <0,1,0> ] 
+  }// ... color map 
+ } //...pigment 
+    finish { phong 0.8 } // Shiny finish
+  normal { wrinkles scale y/10 scale 3 warp {turbulence 0.1} scale 0.1 bump_size 0.1 } // 
 }
 
 text { 
 
-ttf "timrom.ttf" "0"  0.15,0 
+ttf "timrom.ttf"  "I"  0.15,0 
  pigment {color rgb <1,1,1> }
  translate y*-2.25 
 
@@ -40,15 +53,22 @@ ttf "timrom.ttf" "0"  0.15,0
 
 // Planet #1
 sphere {
-  <5.000000, 0.000000, 0.000000>, 0.521970 // Position and radius
-  pigment { color rgb <1, 0.5, 0.3>*0.5 } 
-  finish { phong 0.6 roughness 0.05 ambient 0}
-  normal { granite turbulence 0.2 bump_size -0.3 } // 
+  <5.000000, 0.000000, 0.000000>, 0.505062 // Position and radius
+  pigment {  
+ wrinkles  scale 5 warp {turbulence 0.01 } scale 0.2  scale 0.5  
+ color_map { 
+  [0.0 rgb <0.6, 0.3,0> ] 
+  [0.5 rgb <0.6, 0.3, 0.1> ] 
+  [1.0 rgb <1,1,1>*0.5 ] 
+  }// ... color map 
+ } //...pigment 
+    finish { phong 0.6 roughness 0.05 ambient 0}
+  normal { granite scale 0.5 turbulence 0.2 bump_size -0.3 } // 
 }
 
 text { 
 
-ttf "timrom.ttf" "1"  0.15,0 
+ttf "timrom.ttf"  "II"  0.15,0 
  pigment {color rgb <1,1,1> }
  translate y*-2.25 
 
@@ -58,15 +78,15 @@ ttf "timrom.ttf" "1"  0.15,0
 
 // Planet #2
 sphere {
-  <7.000000, 0.000000, 0.000000>, 0.340647 // Position and radius
+  <7.000000, 0.000000, 0.000000>, 0.330085 // Position and radius
   pigment { color rgb <1, 1, 1> } 
   finish { phong 0.8 } // Shiny finish
-  normal { crackle turbulence 0.2  } // 
+  normal { agate scale 0.1  turbulence 0.2 bump_size -0.4  } // 
 }
 
 text { 
 
-ttf "timrom.ttf" "2"  0.15,0 
+ttf "timrom.ttf"  "III"  0.15,0 
  pigment {color rgb <1,1,1> }
  translate y*-2.25 
 
@@ -76,25 +96,7 @@ ttf "timrom.ttf" "2"  0.15,0
 
 // Planet #3
 sphere {
-  <9.000000, 0.000000, 0.000000>, 0.305005 // Position and radius
-  pigment { color rgb <1, 1, 1> } 
-  finish { phong 0.8 } // Shiny finish
-  normal { crackle turbulence 0.2  } // 
-}
-
-text { 
-
-ttf "timrom.ttf" "3"  0.15,0 
- pigment {color rgb <1,1,1> }
- translate y*-2.25 
-
- translate x*8.750000 
-
- }
-
-// Planet #4
-sphere {
-  <11.000000, 0.000000, 0.000000>, 1.594589 // Position and radius
+  <9.000000, 0.000000, 0.000000>, 1.583489 // Position and radius
   pigment {  
  gradient y  sine_wave frequency 3 scale 5 warp {turbulence 0.5 } scale 0.5   
  color_map { 
@@ -108,7 +110,25 @@ sphere {
 
 text { 
 
-ttf "timrom.ttf" "4"  0.15,0 
+ttf "timrom.ttf"  "IV"  0.15,0 
+ pigment {color rgb <1,1,1> }
+ translate y*-2.25 
+
+ translate x*8.750000 
+
+ }
+
+// Planet #4
+sphere {
+  <11.000000, 0.000000, 0.000000>, 0.344303 // Position and radius
+  pigment { color rgb <1, 1, 1> } 
+  finish { phong 0.8 } // Shiny finish
+  normal { agate scale 0.1  turbulence 0.2 bump_size -0.4  } // 
+}
+
+text { 
+
+ttf "timrom.ttf"  "V"  0.15,0 
  pigment {color rgb <1,1,1> }
  translate y*-2.25 
 
@@ -118,15 +138,15 @@ ttf "timrom.ttf" "4"  0.15,0
 
 // Planet #5
 sphere {
-  <13.000000, 0.000000, 0.000000>, 0.328883 // Position and radius
+  <13.000000, 0.000000, 0.000000>, 0.278804 // Position and radius
   pigment { color rgb <1, 1, 1> } 
   finish { phong 0.8 } // Shiny finish
-  normal { crackle turbulence 0.2  } // 
+  normal { agate scale 0.1  turbulence 0.2 bump_size -0.4  } // 
 }
 
 text { 
 
-ttf "timrom.ttf" "5"  0.15,0 
+ttf "timrom.ttf"  "VI"  0.15,0 
  pigment {color rgb <1,1,1> }
  translate y*-2.25 
 

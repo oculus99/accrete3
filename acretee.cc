@@ -501,10 +501,13 @@ struct BandMaterial {
 
 int generate_and_render_povray(std::vector<Nucleus> planets, int planetnum) ;
 
-void export_planets_to_csv(std::vector<Nucleus>  planets, std::string filename);
+void export_planets_to_csv(std::vector<Nucleus>  planets, std::string filename, double masslimit);
 
 int main(int ac, char *av[])
 {
+	int planetnum=0;
+		int m=0;
+	
     for (int i = 1; i < ac; i++) {
         if (strcmp(av[i], "-h") == 0 || strcmp(av[i], "--help") == 0) {
             std::cout << "Käyttö: " << av[0] << " [asetukset]\n";
@@ -565,6 +568,10 @@ int main(int ac, char *av[])
 
     double ACCRETION_FRACTION_PER_ITERATION = 0.001;
     int MAX_ACCRETION_ITERATIONS = 1000000;
+
+
+	char romans1[50][128]={"I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XI", "XII", "XIII", "XIV", "XV", "XVI"};
+
 
     for (int i = 1; i < ac; i++) {
         if (strcmp(av[i], "-dump") == 0) {
@@ -935,8 +942,9 @@ int main(int ac, char *av[])
     std::sort(planets.begin(), planets.end());
 
 
-
-	int planetnum=planets.size();
+	//int planetnum;
+	
+	planetnum=planets.size();
 
 //  printf(" %i ", planetnum);
   
@@ -950,7 +958,7 @@ int main(int ac, char *av[])
 	
    generate_and_render_povray(planets, planetnum);
 
-	export_planets_to_csv(planets,(std::string) "planets.csv");
+	export_planets_to_csv(planets,(std::string) "planets.csv", 0.02);
 
     std::cout << "\n--- Planeet system ---\n";
     std::cout << "Seed of simulation: " << seed << "\n";
@@ -973,6 +981,7 @@ int main(int ac, char *av[])
         const Nucleus &p = planets[i];
 
         if ((p.mass * SOLAR_MASS_TO_EARTH_MASS) < 0.03) {
+		
             continue;
         }
 
@@ -983,10 +992,12 @@ int main(int ac, char *av[])
         double total_mass_for_fractions_planet = total_solid_mass_planet + gas_mass_planet;
         if (total_mass_for_fractions_planet == 0) total_mass_for_fractions_planet = p.mass;
 
-        std::cout << std::left << std::setw(5) << (i + 1)
+       // std::cout << std::left << std::setw(5) << (i + 1)
+       std::cout << romans1[m] << " "
                   << std::left << std::setw(12) << std::fixed << std::setprecision(3) << p.axis
                   << std::left << std::setw(15) << std::fixed << std::setprecision(3) << (p.mass * SOLAR_MASS_TO_EARTH_MASS);
 
+		m++;
         std::string planet_type_str;
         if (p.type == Nucleus::gas_p) planet_type_str = "gas";
         else if (p.type == Nucleus::ice_p) planet_type_str = "ice";
@@ -1461,12 +1472,16 @@ else {
 
 
 
-void export_planets_to_csv(std::vector<Nucleus> planets,  std::string filename) {
+void export_planets_to_csv(std::vector<Nucleus> planets,  std::string filename, double masslimit) {
 
 	Nucleus planet;
-	
+	int m=0;
     int n=0;
-	int planetnum=planets.size();
+	int planetnum=0;
+	
+	char romans1[50][128]={"I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XI", "XII", "XIII", "XIV", "XV", "XVI"};
+
+	planetnum=planets.size();
 
     std::ofstream csv_file(filename);
 
@@ -1481,9 +1496,11 @@ void export_planets_to_csv(std::vector<Nucleus> planets,  std::string filename) 
     }
 
     // Write CSV header
-    csv_file << "radius_au,eccentricity,mass_mearths,planet_type,p_iron,p_rock,p_ice,p_gas, radius_km,teq_k\n";
+    csv_file << "num, radius_au,eccentricity,mass_mearths,planet_type,p_iron,p_rock,p_ice,p_gas, radius_km,teq_k\n";
 	
 	printf("\n %i ", planetnum);
+	
+	m=0;
 	
 	for (n=0;n<planetnum;n++)
 	{
@@ -1494,6 +1511,9 @@ void export_planets_to_csv(std::vector<Nucleus> planets,  std::string filename) 
             //     << planet.eccen << ",";
      
              double mass_earth_masses = planet.mass * SOLAR_MASS_TO_EARTH_MASS;
+
+		if(mass_earth_masses>masslimit)
+		{
 
         double total_solid_mass = planet.accumulated_iron_mass + planet.accumulated_rock_mass + planet.accumulated_ice_mass;
         double gas_mass = planet.mass - total_solid_mass;
@@ -1523,7 +1543,7 @@ void export_planets_to_csv(std::vector<Nucleus> planets,  std::string filename) 
             case Nucleus::gas_p:  planet_type_str = "Giant"; break;
         }
 
-        csv_file << std::fixed << std::setprecision(6)
+        csv_file << romans1[m]<< ","<< std::fixed << std::setprecision(6)
                  << planet.axis << ","
                  << planet.eccen << ","
                  << mass_earth_masses << ","
@@ -1535,6 +1555,10 @@ void export_planets_to_csv(std::vector<Nucleus> planets,  std::string filename) 
 				 << std::setprecision(2)
 				 <<	round(planet_radius_km)<<","
 				 <<	round(planet_equilibrium_temperature)<< "\n";
+     
+			m++;
+		
+		}
      
      
 		}

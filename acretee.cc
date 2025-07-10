@@ -1,7 +1,7 @@
 
 
 //
-// acretee  v 0000.0000.0007
+// acretee  v 0000.0000.0007b
 // based on acrete
 //
 // use own surface density profile, pov ray output
@@ -1057,7 +1057,7 @@ int generate_and_render_povray(std::vector<Nucleus> planets, int planetnum) {
 	double massaa=0.0;
     double star_radius_pov = 1.5; // POV-Ray units
     double planet_radius_scale =0.5; // 1 Km in simulation = 0.0005 POV-Ray units
-    double distance_scale = 2.0;        // 1 AU in simulation = 5.0 POV-Ray units
+    double distance_scale = 3.0;        // 1 AU in simulation = 5.0 POV-Ray units
 
     double planet_x =0;  
 	double planet_y = 0.0; // Assume they are on the x-z plane (y=0)
@@ -1069,14 +1069,58 @@ int generate_and_render_povray(std::vector<Nucleus> planets, int planetnum) {
     char output_image_filename[] = "system_render.png";
 	char buffu [256]="";
     char command[512]="";
-
+     char charnames[256]="";
 	char romans1[50][128]={"I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XI", "XII", "XIII", "XIV", "XV", "XVI"};
 
     
     
     memset(buffu,0,256);
     memset(command,0,256);
+ 
+
+    memset(charnames, 0, 256);
+ 
+
+    // Luodaan char-taulukko löytöjärjestyksessä oleville nimille
+    // Oletetaan, että charnames on riittävän suuri (esim. 256)
+    // --- Ensimmäinen lajittelu: Massan mukaan laskevasti (massiivisin ensin) ---
+    // Tämä järjestää planets-vektorin niin, että massiivisin planeetta on ensimmäisenä.
+  //  std::sort(planets.begin(), planets.end(), [](const Nucleus& a, const Nucleus& b) {
+  //      return a.mass > b.mass; // Lajittelee massan mukaan, suurin ensin
+  //  });
+        // --- Massalajittelu ---
+   /*
+   
+    std::sort(planets.begin(), planets.end(), [](Nucleus& a, Nucleus& b) {
+        return a.mass > b.mass; // Lajittelee massan mukaan, suurin ensin
+    });
+
+    */
     
+    
+    int i = 0;
+    for (const auto& p : planets) {
+        if (i < 256) {
+            charnames[i] = static_cast<char>('a' + i);
+            std::cout << "Planeetta: " << p.axis << ", Massa: " << p.mass
+                      << ", Löytöjärjestys: " << charnames[i] << std::endl;
+            i++;
+        } else {
+            std::cerr << "Varoitus: charnames-taulukko täynnä, kaikkia planeettoja ei voitu käsitellä." << std::endl;
+            break;
+        }
+    }
+ 
+ 
+ printf("\n>%s<", charnames);
+/*
+  std::sort(planets.begin(), planets.end(), [](const Nucleus& a, const Nucleus& b) {
+        return a.axis > b.axis; // Lajittelee axis-arvon mukaan, suurin ensin
+    });
+*/
+
+// exit(-1);
+
     //planet_pointer node1;
 
 
@@ -1110,16 +1154,8 @@ int generate_and_render_povray(std::vector<Nucleus> planets, int planetnum) {
     // This could also be your central star itself
     fprintf(fp_pov, "light_source { <0, 0, -10> color White * 1.5 }\n\n");
 
-    // Ground plane (optional, but makes the scene look better)
-   // fprintf(fp_pov, "plane {\n");
-   // fprintf(fp_pov, "  y, -0.1 // Normal vector (y-axis), distance from origin\n");
-   // fprintf(fp_pov, "  pigment { checker color DarkGreen, color Green }\n");
-   // fprintf(fp_pov, "}\n\n");
 
-    // --- Central Star ---
-    // Scale its radius based on stellar_mass_ratio or stellar_luminosity_ratio
-    // For simplicity, let's use a fixed size that looks good with planets scaled below
-
+/*
     fprintf(fp_pov, "sphere {\n");
     fprintf(fp_pov, "  <0, 0, 0>, %f // Center and radius\n", star_radius_pov);
     fprintf(fp_pov, "  pigment {  ");
@@ -1136,6 +1172,67 @@ int generate_and_render_povray(std::vector<Nucleus> planets, int planetnum) {
     fprintf(fp_pov, "  // Add a halo for a more realistic star glow (requires photons in render settings)\n");
     // fprintf(fp_pov, "  photons { emission 1 }\n"); // Uncomment if you want to use photons for glow
     fprintf(fp_pov, "}\n\n");
+*/
+
+
+
+fprintf(fp_pov, "background { color rgb <0, 0, 0.0> } // Tumma avaruus \n");
+fprintf(fp_pov, "\n");
+fprintf(fp_pov, "#declare bright_star= union {\n");
+fprintf(fp_pov, "\n");
+fprintf(fp_pov, "light_source {\n");
+fprintf(fp_pov, "    <0, 0, 0>\n");
+fprintf(fp_pov, "    color rgb <1, 1, 1>\n");
+fprintf(fp_pov, "\n");
+fprintf(fp_pov, "looks_like \n");
+fprintf(fp_pov, "{\n");
+fprintf(fp_pov, "// Tähti (kirkas pallo)\n");
+fprintf(fp_pov, "sphere {\n");
+fprintf(fp_pov, "    <0, 0, 0>, 1\n ");
+fprintf(fp_pov, "    texture {\n");
+fprintf(fp_pov, "        pigment { color rgb <1, 1, 0.8> } // Keltainen/valkoinen sävy \n");
+fprintf(fp_pov, "        finish {\n");
+fprintf(fp_pov, "            emission 1\n");
+fprintf(fp_pov, "            diffuse 0.2\n");
+fprintf(fp_pov, "            specular 0.5\n");
+fprintf(fp_pov, "            roughness 0.01\n");
+fprintf(fp_pov, "        }\n");
+fprintf(fp_pov, "    }\n");
+fprintf(fp_pov, "}\n");
+fprintf(fp_pov, "}\n");
+fprintf(fp_pov, "}\n");
+fprintf(fp_pov, "\n");
+fprintf(fp_pov, "// Mediheheku (säteilevä vaikutus tähden ympärillä)\n ");
+fprintf(fp_pov, "sphere {\n");
+fprintf(fp_pov, "    <0, 0, 0>, 1 // Hieman suurempi pallo hehkua varten\n");
+fprintf(fp_pov, "    hollow\n");
+fprintf(fp_pov, "    material {\n");
+fprintf(fp_pov, "        texture {\n");
+fprintf(fp_pov, "                  pigment { color rgbt <1, 1, 1, 1> } // Lähes läpinäkyvä  \n ");
+fprintf(fp_pov, "\n");
+fprintf(fp_pov, "        }\n");
+fprintf(fp_pov, "\n");
+fprintf(fp_pov, "        interior {\n");
+fprintf(fp_pov, "            media {\n");
+fprintf(fp_pov, "                scattering { 3, rgb <1, 1, 0.8> * 1/20 }\n");
+fprintf(fp_pov, "                //emission 1/10000\n");
+fprintf(fp_pov, "                density { spherical poly_wave 2 density_map {\n");
+fprintf(fp_pov, "                    [0 color rgbt <0, 0, 0,1>]\n");
+fprintf(fp_pov, "                    [1 color rgbt <1, 1, 1,0>]\n");
+fprintf(fp_pov, "                }}\n");
+fprintf(fp_pov, "                samples 10,20\n");
+fprintf(fp_pov, "\n");
+fprintf(fp_pov, "            }\n");
+fprintf(fp_pov, "        }\n");
+fprintf(fp_pov, "    }\n");
+fprintf(fp_pov, "scale 3\n");
+fprintf(fp_pov, "}\n");
+fprintf(fp_pov, "\n");
+fprintf(fp_pov, "}\n");
+fprintf(fp_pov, "\n");
+fprintf(fp_pov, "object {bright_star translate x*-2}\n");
+fprintf(fp_pov, "\n");
+
 
 
     // --- Planets ---
@@ -1185,22 +1282,23 @@ int generate_and_render_povray(std::vector<Nucleus> planets, int planetnum) {
 		  {
 			fprintf(fp_pov, "  pigment {  \n");
 			
-					fprintf(fp_pov, " gradient y  sine_wave frequency 3 scale 5 warp {turbulence 0.5 } scale 0.5   \n");	
+					fprintf(fp_pov, " gradient y  sine_wave frequency 1.5 scale 5 warp {turbulence 0.5 } scale 1/5 turbulence 0.1   \n");	
 			fprintf(fp_pov, " color_map { \n");			
 			
-			fprintf(fp_pov, "  [0.0 rgb <1,0.7,0.5> ] \n");
-			fprintf(fp_pov, "  [1.0 rgb <1,1,1> ] \n");	
+			fprintf(fp_pov, "  [0.0 rgb <0.533333, 0.427451, 0.352941> ] \n");
+			fprintf(fp_pov, "  [0.5 rgb <0.917647, 0.631373, 0.454902> ] \n");	
+			fprintf(fp_pov, "  [1.0 rgb <0.992157, 0.952941, 0.847059> ] \n");	
 				
 			fprintf(fp_pov, "  }// ... color map \n");				
 			
 			fprintf(fp_pov, " } //...pigment \n  ");
-	        fprintf(fp_pov, "  finish { phong 0.8 } // Shiny finish\n");
-		    fprintf(fp_pov, "  normal { wrinkles scale y/10 scale 3 warp {turbulence 0.1} scale 0.1 bump_size 0.1 } // \n");
+	        fprintf(fp_pov, "  finish {  diffuse 0.65 ambient 0 } // Shiny finish\n");
+		  //  fprintf(fp_pov, "  normal { wrinkles scale y/10 scale 3 warp {turbulence 0.1} scale 0.1 bump_size 0.1 } // \n");
 		  }
       if(planets[n].type == Nucleus::PlanetType::ice_p)
 		  {
 			fprintf(fp_pov, "  pigment { color rgb <1, 1, 1> } \n");
-	        fprintf(fp_pov, "  finish { phong 0.8 } // Shiny finish\n");
+	        fprintf(fp_pov, "  finish { phong 0.8 ambient 0} // Shiny finish\n");
 		        fprintf(fp_pov, "  normal { agate scale 0.1  turbulence 0.2 bump_size -0.4  } // \n");
 		  }
            
@@ -1223,9 +1321,10 @@ int generate_and_render_povray(std::vector<Nucleus> planets, int planetnum) {
 		 
 					}
 		 
-	//	earthlike=1;
+		//earthlike=1;
 		if(earthlike==1)
 		{
+				fprintf(fp_pov, "  texture {  \n");
 				fprintf(fp_pov, "  pigment {  \n");
 			
 				fprintf(fp_pov, " wrinkles  scale 5 warp {turbulence 0.01 } scale 0.2  scale 0.5  \n");	
@@ -1234,13 +1333,32 @@ int generate_and_render_povray(std::vector<Nucleus> planets, int planetnum) {
 				fprintf(fp_pov, "  [0.0 rgb <0,0,1> ] \n");
 				fprintf(fp_pov, "  [0.5 rgb <0,0,1> ] \n");
 				fprintf(fp_pov, "  [0.5 rgb <0,1,0> ] \n");	
-			    fprintf(fp_pov, "  [1.0 rgb <0,1,0> ] \n");	
+			    fprintf(fp_pov, "  [1.0 rgb <0.796078, 0.545098, 0.345098> ] \n");	
 								
 				fprintf(fp_pov, "  }// ... color map \n");				
 			
 				fprintf(fp_pov, " } //...pigment \n  ");
 				fprintf(fp_pov, "  finish { phong 0.8 } // Shiny finish\n");
 				fprintf(fp_pov, "  normal { wrinkles scale y/10 scale 3 warp {turbulence 0.1} scale 0.1 bump_size 0.1 } // \n");
+					fprintf(fp_pov, " } \n");
+		
+					fprintf(fp_pov, "  texture { // clouds  \n");
+				fprintf(fp_pov, "  pigment {  \n");
+			
+				fprintf(fp_pov, " granite  turbulence 1 \n");	
+				fprintf(fp_pov, " color_map { \n");			
+			
+				fprintf(fp_pov, "  [0.0 rgbt <0,0,0,1> ] \n");
+				fprintf(fp_pov, "  [0.3 rgbt <0,0,1,1> ] \n");
+				fprintf(fp_pov, "  [0.5 rgbt <1,1,10> ] \n");	
+			    fprintf(fp_pov, "  [1.0 rgbt <1,1,1,0> ] \n");	
+								
+				fprintf(fp_pov, "  }// ... color map \n");				
+			
+				fprintf(fp_pov, " } //...pigment \n  ");
+				fprintf(fp_pov, "  finish { phong 0.8 ambient 0} // Shiny finish\n");
+			//	fprintf(fp_pov, "  normal { wrinkles scale y/10 scale 3 warp {turbulence 0.1} scale 0.1 bump_size 0.1 } // \n");
+					fprintf(fp_pov, " } \n");	
 			}
 			else
 				{
@@ -1249,16 +1367,14 @@ int generate_and_render_povray(std::vector<Nucleus> planets, int planetnum) {
 				fprintf(fp_pov, " wrinkles  scale 5 warp {turbulence 0.01 } scale 0.2  scale 0.5  \n");	
 				fprintf(fp_pov, " color_map { \n");			
 			
-				fprintf(fp_pov, "  [0.0 rgb <0.6, 0.3,0> ] \n");
-				fprintf(fp_pov, "  [0.5 rgb <0.6, 0.3, 0.1> ] \n");
-			//	fprintf(fp_pov, "  [0.5 rgb <0.8,0.5,0.5> ] \n");	
-			    fprintf(fp_pov, "  [1.0 rgb <1,1,1>*0.5 ] \n");	
+				fprintf(fp_pov, "  [0.0 rgb <0.266667, 0.25098, 0.203922> ] \n");	
+			    fprintf(fp_pov, "  [1.0 rgb <0.87451, 0.729412, 0.541176> ] \n");	
 								
 				fprintf(fp_pov, "  }// ... color map \n");				
 			
 				fprintf(fp_pov, " } //...pigment \n  ");				
 				
-					fprintf(fp_pov, "  finish { phong 0.6 roughness 0.05 ambient 0}\n"); // Less shiny, more diffuse
+					fprintf(fp_pov, "  finish { diffuse 0.5 roughness 0.05 ambient 0}\n"); // Less shiny, more diffuse
 					fprintf(fp_pov, "  normal { granite scale 0.5 turbulence 0.2 bump_size -0.3 } // \n");	
 				}
 		

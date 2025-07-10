@@ -1,7 +1,7 @@
 
 
 //
-// acretee  v 0000.0000.0007b
+// acretee  v 0000.0000.0008
 // based on acrete
 //
 // use own surface density profile, pov ray output
@@ -1481,7 +1481,7 @@ void export_planets_to_csv(std::vector<Nucleus> planets,  std::string filename) 
     }
 
     // Write CSV header
-    csv_file << "radius_au,eccentricity,mass_mearths,planet_type,p_iron,p_rock,p_ice,p_gas\n";
+    csv_file << "radius_au,eccentricity,mass_mearths,planet_type,p_iron,p_rock,p_ice,p_gas, radius_km,teq_k\n";
 	
 	printf("\n %i ", planetnum);
 	
@@ -1505,6 +1505,8 @@ void export_planets_to_csv(std::vector<Nucleus> planets,  std::string filename) 
         double p_rock = 0.0;
         double p_ice = 0.0;
         double p_gas = 0.0;
+		double planet_radius_km=planets[n].get_radius_km();
+		double planet_equilibrium_temperature=planets[n].get_temperature_k();
 
         if (total_mass_for_fractions > 0) {
             p_iron = planet.accumulated_iron_mass / total_mass_for_fractions;
@@ -1518,7 +1520,7 @@ void export_planets_to_csv(std::vector<Nucleus> planets,  std::string filename) 
             case Nucleus::iron_p: planet_type_str = "Iron"; break;
             case Nucleus::rock_p: planet_type_str = "Rocky"; break;
             case Nucleus::ice_p:  planet_type_str = "Icy"; break;
-            case Nucleus::gas_p:  planet_type_str = "Gas Giant"; break;
+            case Nucleus::gas_p:  planet_type_str = "Giant"; break;
         }
 
         csv_file << std::fixed << std::setprecision(6)
@@ -1529,8 +1531,10 @@ void export_planets_to_csv(std::vector<Nucleus> planets,  std::string filename) 
                  << p_iron << ","
                  << p_rock << ","
                  << p_ice << ","
-                 << p_gas << "\n";
-     
+                 << p_gas << ","
+				 << std::setprecision(2)
+				 <<	round(planet_radius_km)<<","
+				 <<	round(planet_equilibrium_temperature)<< "\n";
      
      
 		}
@@ -1544,15 +1548,6 @@ void export_planets_to_csv(std::vector<Nucleus> planets,  std::string filename) 
 	
 
 
-
-
-   /* 
-    
-    if( mass_earth_masses>1e-4) {
-    std::cout<<planet.axis<< " "    << mass_earth_masses << " "<< planet_type_str <<" " << p_iron << " "  << p_rock << " " << p_ice << " "<< p_gas  <<"\n";
-	
-		}
-*/    
 
 
 }

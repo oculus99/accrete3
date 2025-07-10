@@ -1,7 +1,7 @@
 
 
 //
-// acretee  v 0000.0000.0008
+// acretee  v 0000.0000.0008b
 // based on acrete
 //
 // use own surface density profile, pov ray output
@@ -502,6 +502,27 @@ struct BandMaterial {
 int generate_and_render_povray(std::vector<Nucleus> planets, int planetnum) ;
 
 void export_planets_to_csv(std::vector<Nucleus>  planets, std::string filename, double masslimit);
+double planet_surface_temperature_from_pressure(double S1_earths, double psurf_earths);
+
+double planet_surface_temperature_from_pressure(double S1_earths, double psurf_earths)
+	{
+	//	tsurf=planet_surface_temperature_from_pressure(1/(au*au), mplanet*mplanet);
+	double psurf=0.0;
+	double S1=0.0;
+	double ate=0.0;
+	double ts_planet=0.0;
+	
+	psurf=101325 *psurf_earths;
+	S1=1365*S1_earths;
+
+    ate = exp((0.233001 * pow(psurf, 0.0651203)) + (0.0015393 * pow(psurf, 0.385232)));
+    
+    ts_planet = 25.3966 * pow((S1 + 0.0001325), 0.25) * ate;
+    
+    return (ts_planet);
+	}
+
+
 
 int main(int ac, char *av[])
 {
@@ -1268,7 +1289,9 @@ fprintf(fp_pov, "\n");
         //double planet_pov_radius = sqrt(node1->radius) * planet_radius_scale;
         
         massaa=planets[n].mass*333000;
-        
+        double distance_au=planets[n].axis;
+        // assumes, that central star is sun. earthlike planet temperature K
+   	    double tsurf=planet_surface_temperature_from_pressure(1/(distance_au*distance_au), massaa*massaa);     
 		if(massaa>0.02)
 		{
         
@@ -1316,13 +1339,14 @@ fprintf(fp_pov, "\n");
       if(planets[n].type == Nucleus::PlanetType::rock_p)
 		  {
 			int earthlike=0;
-			double tempera=planets[n].get_temperature_k();
+			//double tempera=planets[n].get_temperature_k();
+			double tempera=tsurf;
 			if( (planets[n].mass*333000)>0.8) {
 				if( (planets[n].mass*333000)<2.0) {
 		 
 		 
-					if(tempera>273.0) {
-							   if(tempera<320.0){
+					if(tempera>(273.0+5)) {
+							   if(tempera<315.0){
 											earthlike=1;
 										}
 								}
@@ -1496,7 +1520,7 @@ void export_planets_to_csv(std::vector<Nucleus> planets,  std::string filename, 
     }
 
     // Write CSV header
-    csv_file << "num, radius_au,eccentricity,mass_mearths,planet_type,p_iron,p_rock,p_ice,p_gas, radius_km,teq_k\n";
+    csv_file << "num, radius_au,eccentricity,mass_mearths,planet_type,p_iron,p_rock,p_ice,p_gas, radius_km,teq_k, tsurf_k\n";
 	
 	printf("\n %i ", planetnum);
 	
@@ -1527,7 +1551,7 @@ void export_planets_to_csv(std::vector<Nucleus> planets,  std::string filename, 
         double p_gas = 0.0;
 		double planet_radius_km=planets[n].get_radius_km();
 		double planet_equilibrium_temperature=planets[n].get_temperature_k();
-
+	    double planet_tsurf=planet_surface_temperature_from_pressure(1/(planet.axis*planet.axis), mass_earth_masses*mass_earth_masses);
         if (total_mass_for_fractions > 0) {
             p_iron = planet.accumulated_iron_mass / total_mass_for_fractions;
             p_rock = planet.accumulated_rock_mass / total_mass_for_fractions;
@@ -1554,8 +1578,8 @@ void export_planets_to_csv(std::vector<Nucleus> planets,  std::string filename, 
                  << p_gas << ","
 				 << std::setprecision(2)
 				 <<	round(planet_radius_km)<<","
-				 <<	round(planet_equilibrium_temperature)<< "\n";
-     
+				 <<	round(planet_equilibrium_temperature)<< ","
+ 				 <<	round(planet_tsurf)<< "\n";    
 			m++;
 		
 		}

@@ -1,10 +1,10 @@
 
 
 //
-// acretee  v 0000.0000.0008b
+// acretee  v 0000.0000.0009a
 // based on acrete
 //
-// use own surface density profile, pov ray output
+// use own surface density profile, POV-Ray output
 //
 
 #include <iostream>
@@ -499,9 +499,8 @@ struct BandMaterial {
     BandMaterial() : dust_iron(0.0), dust_rock(0.0), dust_ice(0.0) {}
 };
 
-int generate_and_render_povray(std::vector<Nucleus> planets, int planetnum) ;
 
-void export_planets_to_csv(std::vector<Nucleus>  planets, std::string filename, double masslimit);
+
 double planet_surface_temperature_from_pressure(double S1_earths, double psurf_earths);
 
 double planet_surface_temperature_from_pressure(double S1_earths, double psurf_earths)
@@ -519,10 +518,17 @@ double planet_surface_temperature_from_pressure(double S1_earths, double psurf_e
     
     ts_planet = 25.3966 * pow((S1 + 0.0001325), 0.25) * ate;
     
+    if(ts_planet>3000) {
+		ts_planet= 25.3966 * pow((S1 + 0.0001325), 0.25);
+		}
+    
     return (ts_planet);
 	}
 
 
+int generate_and_render_povray(std::vector<Nucleus> planets, int planetnum) ;
+
+void export_planets_to_csv(std::vector<Nucleus>  planets, std::string filename, double masslimit);
 
 int main(int ac, char *av[])
 {
@@ -1081,6 +1087,11 @@ int main(int ac, char *av[])
 
 
 
+
+
+
+
+
 int generate_and_render_povray(std::vector<Nucleus> planets, int planetnum) {
 
     int counter=0;
@@ -1356,7 +1367,7 @@ fprintf(fp_pov, "\n");
 		 
 					}
 		 
-		//earthlike=1;
+	//	earthlike=1;
 		if(earthlike==1)
 		{
 				fprintf(fp_pov, "  texture {  \n");
@@ -1380,7 +1391,7 @@ fprintf(fp_pov, "\n");
 					fprintf(fp_pov, "  texture { // clouds  \n");
 				fprintf(fp_pov, "  pigment {  \n");
 			
-				fprintf(fp_pov, " granite  turbulence 1 \n");	
+				fprintf(fp_pov, " granite warp { turbulence 1 } \n");	
 				fprintf(fp_pov, " color_map { \n");			
 			
 				fprintf(fp_pov, "  [0.0 rgbt <0,0,0,1> ] \n");
@@ -1592,10 +1603,6 @@ void export_planets_to_csv(std::vector<Nucleus> planets,  std::string filename, 
     csv_file.close();
     std::cout << "Planet data exported to " << filename << std::endl;
 	
-
-	
-
-
 
 
 }
